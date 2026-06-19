@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Check, Copy, Users } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/shared/components/ui/avatar';
 import { Badge } from '@/shared/components/ui/badge';
+import { useTeamPresence } from '../hooks/useTeamPresence';
 import type { Team, TeamMember } from '../types/dashboard_types';
 
 interface TeamInfoSectionProps {
@@ -12,6 +13,7 @@ interface TeamInfoSectionProps {
 
 export function TeamInfoSection({ team, members, currentUserId }: TeamInfoSectionProps) {
   const [copied, setCopied] = useState(false);
+  const onlineUserIds = useTeamPresence({ teamId: team.id, currentUserId });
 
   const handleCopy = () => {
     navigator.clipboard.writeText(team.invite_code).then(() => {
@@ -19,6 +21,13 @@ export function TeamInfoSection({ team, members, currentUserId }: TeamInfoSectio
       setTimeout(() => setCopied(false), 2000);
     });
   };
+
+  const onlineMembers = members.filter(
+    (m) => onlineUserIds.has(m.id) || m.id === currentUserId
+  );
+  const offlineMembers = members.filter(
+    (m) => !onlineUserIds.has(m.id) && m.id !== currentUserId
+  );
 
   return (
     <section className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 backdrop-blur-sm">
@@ -61,48 +70,127 @@ export function TeamInfoSection({ team, members, currentUserId }: TeamInfoSectio
 
       {/* Members */}
       <div>
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-4 flex items-center gap-2">
           <Users className="size-4 text-zinc-500" />
           <span className="text-sm font-medium text-zinc-400">
             Team Members
           </span>
           <Badge
             variant="secondary"
-            className="h-5 min-w-5 bg-zinc-800 px-1.5 text-xs text-zinc-300"
+            className="h-5 min-w-5 bg-zinc-800 px-1.5 text-xs text-zinc-300 border border-zinc-700/50"
           >
             {members.length}
           </Badge>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {members.map((member, idx) => {
-            const isSelf = member.id === currentUserId;
-            const displayName = isSelf 
-              ? "You" 
-              : (member.name || member.email || `User ${idx + 1}`);
-            const initials = isSelf
-              ? "Y"
-              : displayName.slice(0, 2).toUpperCase();
-
-            return (
-              <div
-                key={member.id}
-                className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-800/40 px-3 py-1.5"
+        {/* Split Columns */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Online Column */}
+          <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/20 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <h3 className="text-sm font-semibold text-zinc-300">Online</h3>
+              <Badge
+                variant="secondary"
+                className="ml-auto h-5 bg-emerald-500/10 px-2 text-xs font-semibold text-emerald-400 border border-emerald-500/20"
               >
-                <Avatar className="h-6 w-6">
-                  <AvatarFallback className="bg-emerald-500/20 text-[10px] font-bold text-emerald-400">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="max-w-40 truncate text-xs text-zinc-300">
-                  {displayName}
-                </span>
-              </div>
-            );
-          })}
-          {members.length === 0 && (
-            <p className="text-sm text-zinc-500">No members yet.</p>
-          )}
+                {onlineMembers.length}
+              </Badge>
+            </div>
+            
+            <div className="flex flex-col gap-2">
+              {onlineMembers.map((member, idx) => {
+                const isSelf = member.id === currentUserId;
+                const displayName = isSelf 
+                  ? "You" 
+                  : (member.name || member.email || `User ${idx + 1}`);
+                const initials = isSelf
+                  ? "Y"
+                  : displayName.slice(0, 2).toUpperCase();
+
+                return (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between rounded-xl border border-zinc-850 bg-zinc-900/40 px-3.5 py-2.5 transition-all hover:bg-zinc-800/30 hover:border-zinc-750/50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8 border border-zinc-800 bg-emerald-500/5">
+                        <AvatarFallback className="bg-emerald-500/10 text-xs font-bold text-emerald-400">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-zinc-200">
+                          {displayName}
+                        </span>
+                        <span className="text-[10px] text-zinc-500">
+                          {isSelf ? "Active session" : (member.email || "Online")}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {onlineMembers.length === 0 && (
+                <p className="text-xs text-zinc-600 py-3 text-center">No one is online</p>
+              )}
+            </div>
+          </div>
+
+          {/* Offline Column */}
+          <div className="rounded-xl border border-zinc-800/50 bg-zinc-950/10 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-zinc-650"></span>
+              <h3 className="text-sm font-semibold text-zinc-400">Offline</h3>
+              <Badge
+                variant="secondary"
+                className="ml-auto h-5 bg-zinc-800 px-2 text-xs font-semibold text-zinc-400 border border-zinc-700/50"
+              >
+                {offlineMembers.length}
+              </Badge>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {offlineMembers.map((member, idx) => {
+                const isSelf = member.id === currentUserId;
+                const displayName = isSelf 
+                  ? "You" 
+                  : (member.name || member.email || `User ${idx + 1}`);
+                const initials = isSelf
+                  ? "Y"
+                  : displayName.slice(0, 2).toUpperCase();
+
+                return (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between rounded-xl border border-zinc-900/50 bg-zinc-900/10 px-3.5 py-2.5 opacity-60 transition-all hover:opacity-85 hover:border-zinc-800/30"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8 border border-zinc-900 grayscale">
+                        <AvatarFallback className="bg-zinc-800/50 text-xs font-bold text-zinc-500">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-zinc-400">
+                          {displayName}
+                        </span>
+                        <span className="text-[10px] text-zinc-600">
+                          Offline
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {offlineMembers.length === 0 && (
+                <p className="text-xs text-zinc-600 py-3 text-center">Everyone is online</p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </section>
