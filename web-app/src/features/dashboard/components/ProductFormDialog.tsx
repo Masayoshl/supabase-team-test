@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { ImageIcon, Loader2, Upload, X } from "lucide-react";
 import {
   Dialog,
@@ -17,6 +19,7 @@ import {
   uploadProductImage,
 } from "../services/dashboard_service";
 import type { Product } from "../types/dashboard_types";
+import { productFormSchema, type ProductFormInput } from "../schemas/product_schema";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -49,10 +52,12 @@ function ImagePicker({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(existingUrl);
+  const [prevUrl, setPrevUrl] = useState<string | null>(existingUrl);
 
-  useEffect(() => {
+  if (existingUrl !== prevUrl) {
+    setPrevUrl(existingUrl);
     setPreview(existingUrl);
-  }, [existingUrl]);
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -111,6 +116,7 @@ function ImagePicker({
 
 // ── Main Dialog ───────────────────────────────────────────────────────────────
 
+
 export function ProductFormDialog({
   open,
   teamId,
@@ -120,9 +126,21 @@ export function ProductFormDialog({
 }: ProductFormDialogProps) {
   const isEdit = Boolean(product);
 
-  // Form state
-  const [title, setTitle] = useState(product?.title ?? "");
-  const [description, setDescription] = useState(product?.description ?? "");
+  // Form hook
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm<ProductFormInput>({
+    resolver: zodResolver(productFormSchema),
+    defaultValues: {
+      title: product?.title ?? "",
+      description: product?.description ?? "",
+    },
+  });
+
+  // Image state
   const [imageFile, setImageFile] = useState<File | null>(null);
   /** null = user explicitly cleared the image */
   const [imageClearedExplicitly, setImageClearedExplicitly] = useState(false);
@@ -131,17 +149,23 @@ export function ProductFormDialog({
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
- 
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open);
+  const [prevProduct, setPrevProduct] = useState(product);
+
+  if (open !== prevOpen || product?.id !== prevProduct?.id) {
+    setPrevOpen(open);
+    setPrevProduct(product);
     if (open) {
-      setTitle(product?.title ?? "");
-      setDescription(product?.description ?? "");
+      reset({
+        title: product?.title ?? "",
+        description: product?.description ?? "",
+      });
       setImageFile(null);
       setImageClearedExplicitly(false);
       setImageError(null);
       setApiError(null);
     }
-  }, [open, product]);
+  }
 
   const validateImage = (file: File): boolean => {
     if (file.size > MAX_BYTES) {
@@ -169,9 +193,7 @@ export function ProductFormDialog({
     setImageError(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
+  const onSubmitForm = async (data: ProductFormInput) => {
     if (imageFile && !validateImage(imageFile)) return;
 
     setIsSubmitting(true);
@@ -179,6 +201,9 @@ export function ProductFormDialog({
 
     try {
       let imageUrl: string | null | undefined;
+
+      const trimmedTitle = data.title.trim();
+      const trimmedDescription = data.description?.trim() || null;
 
       if (isEdit && product) {
         // ── Edit flow ──────────────────────────────────────────────────────
@@ -191,9 +216,9 @@ export function ProductFormDialog({
         // else: imageUrl stays undefined → don't touch the image column
 
         const payload: Record<string, unknown> = {};
-        if (title.trim() !== product.title) payload.title = title.trim();
-        if (description.trim() !== (product.description ?? ""))
-          payload.description = description.trim() || null;
+        if (trimmedTitle !== product.title) payload.title = trimmedTitle;
+        if (trimmedDescription !== (product.description ?? null))
+          payload.description = trimmedDescription;
         if (imageUrl !== undefined) payload.image = imageUrl;
 
         const updated = await updateProduct(product.id, payload);
@@ -202,8 +227,8 @@ export function ProductFormDialog({
         // ── Create flow ────────────────────────────────────────────────────
         // 1. Create the product first to get the ID
         const created = await createProduct({
-          title: title.trim(),
-          description: description.trim() || undefined,
+          title: trimmedTitle,
+          description: trimmedDescription || undefined,
         });
 
         // 2. Upload image using the new product's ID
@@ -240,7 +265,7 @@ export function ProductFormDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="mt-2 space-y-4">
+        <form onSubmit={handleSubmit(onSubmitForm)} className="mt-2 space-y-4">
           {/* Title */}
           <div className="space-y-1.5">
             <Label htmlFor="product-title">
@@ -249,10 +274,13 @@ export function ProductFormDialog({
             <Input
               id="product-title"
               placeholder="e.g. Premium Headphones"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
+              {...register("title")}
             />
+            {errors.title && (
+              <p className="text-xs text-destructive">
+                {errors.title.message}
+              </p>
+            )}
           </div>
 
           {/* Description */}
@@ -261,12 +289,15 @@ export function ProductFormDialog({
             <Textarea
               id="product-description"
               placeholder="Short product description…"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              {...register("description")}
               rows={3}
-              maxLength={2000}
               className="resize-none"
             />
+            {errors.description && (
+              <p className="text-xs text-destructive">
+                {errors.description.message}
+              </p>
+            )}
           </div>
 
           {/* Image */}
@@ -300,7 +331,7 @@ export function ProductFormDialog({
               id="product-form-submit"
               type="submit"
               size="sm"
-              disabled={isSubmitting || !title.trim()}
+              disabled={isSubmitting}
               className="cursor-pointer bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50"
             >
               {isSubmitting ? (

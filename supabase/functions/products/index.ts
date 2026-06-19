@@ -1,8 +1,8 @@
 // deno-lint-ignore-file no-explicit-any
 import { handleCORS } from "../_shared/cors.ts";
 import { createSupabaseClient } from "../_shared/supabase_client.ts";
-import { json, err } from "../_shared/response.ts";
-import { resolveUserTeam, AuthError } from "../_shared/auth.ts";
+import { err, json } from "../_shared/response.ts";
+import { AuthError, resolveUserTeam } from "../_shared/auth.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
@@ -97,7 +97,10 @@ async function listProducts(
     .range(from, to);
 
   if (search) {
-    query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
+    query = query.textSearch("fts", search, {
+      type: "websearch",
+      config: "english",
+    });
   }
 
   if (status) {

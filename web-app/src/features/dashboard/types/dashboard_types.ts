@@ -1,13 +1,10 @@
+import type { Team } from "@/shared/types";
+
+export type { Team };
+
 // ── Enums ───────────────────────────────────────────────────────────────────
 
 export type ProductStatus = "draft" | "active" | "deleted";
-
-export interface Team {
-  id: string;
-  name: string;
-  invite_code: string;
-  created_at: string;
-}
 
 export interface TeamMember {
   id: string;

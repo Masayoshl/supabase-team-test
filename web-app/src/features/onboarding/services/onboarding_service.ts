@@ -1,21 +1,6 @@
 import { supabase } from "../../../shared/supabase/supabase_client";
-
-// ── Types ──────────────────────────────────────────────────────────────────
-
-export interface Team {
-  id: string;
-  name: string;
-  invite_code: string;
-  created_at: string;
-}
-
-export interface CreateTeamPayload {
-  teamName: string;
-}
-
-export interface JoinTeamPayload {
-  inviteCode: string;
-}
+import type { Team } from "@/shared/types";
+import type { CreateTeamInput, JoinTeamInput } from "../schemas/onboarding_schema";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -41,7 +26,7 @@ export const onboardingService = {
    * Creates a new team for the authenticated user.
    * Calls: POST /functions/v1/teams/create
    */
-  createTeam: async (payload: CreateTeamPayload): Promise<Team> => {
+  createTeam: async (payload: CreateTeamInput): Promise<Team> => {
     const { data, error } = await supabase.functions.invoke<{ data: Team }>(
       "teams/create",
       {
@@ -60,7 +45,7 @@ export const onboardingService = {
    * Joins an existing team using an invite code.
    * Calls: POST /functions/v1/teams/join
    */
-  joinTeam: async (payload: JoinTeamPayload): Promise<Team> => {
+  joinTeam: async (payload: JoinTeamInput): Promise<Team> => {
     const { data, error } = await supabase.functions.invoke<{ data: Team }>(
       "teams/join",
       {

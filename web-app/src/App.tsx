@@ -1,11 +1,9 @@
-// src/App.tsx
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/shared/supabase/supabase_client';
-import { AuthPage } from '@/features/auth/pages/auth_page';
-import { OnboardingPage } from '@/features/onboarding/page/onboarding_page';
-import { DashboardPage } from '@/features/dashboard/page/dashboard_page';
-
+import { AuthPage } from '@/features/auth/page/AuthPage';
+import { OnboardingPage } from '@/features/onboarding/page/OnboardingPage';
+import { DashboardPage } from '@/features/dashboard/page/DashboardPage';
 
 
 interface UserProfile {
@@ -19,7 +17,6 @@ export default function App() {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isProfileLoading, setIsProfileLoading] = useState(false);
 
-  // Fetches public.users record for the authenticated user
   const fetchUserProfile = async (userId: string) => {
     setIsProfileLoading(true);
     try {
@@ -40,7 +37,6 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Check initial session on application mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setIsAuthLoading(false);
@@ -49,7 +45,6 @@ export default function App() {
       }
     });
 
-    // Listen for auth state mutations (SIGN_IN, SIGN_OUT, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
       setSession(currentSession);
       setIsAuthLoading(false);
@@ -64,7 +59,7 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Show loading screen while verifying credentials or database status
+
   if (isAuthLoading || isProfileLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-400 text-sm">
@@ -73,12 +68,12 @@ export default function App() {
     );
   }
 
-  // Guard 1: User is not authenticated via Supabase Auth
+  
   if (!session) {
     return <AuthPage />;
   }
 
-  // Guard 2: User is logged in but has no team linked yet (Onboarding Flow)
+ 
   if (profile && !profile.team_id) {
     return (
       <OnboardingPage 
@@ -89,6 +84,6 @@ export default function App() {
     );
   }
 
-  // Final Target Destination: Authenticated and bounded to a specific team
+
   return <DashboardPage />;
 }
