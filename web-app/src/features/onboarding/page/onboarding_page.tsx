@@ -1,0 +1,169 @@
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { createTeamSchema, joinTeamSchema, type CreateTeamInput, type JoinTeamInput } from '../schemas/onboarding_schema';
+import { onboardingService  } from '../services/onboarding_service';
+
+
+interface OnboardingFormProps {
+  onSuccess: () => void;
+}
+
+type OnboardingMode = 'create' | 'join';
+
+export function OnboardingPage({ onSuccess }: OnboardingFormProps) {
+  const [mode, setMode] = useState<OnboardingMode>('create');
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+
+  const createForm = useForm<CreateTeamInput>({
+    resolver: zodResolver(createTeamSchema),
+    defaultValues: { teamName: '' },
+  });
+
+
+  const joinForm = useForm<JoinTeamInput>({
+    resolver: zodResolver(joinTeamSchema),
+    defaultValues: { inviteCode: '' },
+  });
+
+  const onCreateSubmit = async (data: CreateTeamInput) => {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      await onboardingService.createTeam({ teamName: data.teamName });
+      onSuccess();
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : 'Failed to create team.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const onJoinSubmit = async (data: JoinTeamInput) => {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      await onboardingService.joinTeam({ inviteCode: data.inviteCode });
+      onSuccess();
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : 'Invalid invite code.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+
+  const handleModeChange = (newMode: OnboardingMode) => {
+    setMode(newMode);
+    setApiError(null);
+    createForm.reset();
+    joinForm.reset();
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <Card className="w-full max-w-md border-zinc-800 backdrop-blur-md">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold tracking-tight text-center">
+            Team Workspace Setup
+          </CardTitle>
+          <CardDescription className="text-center text-zinc-400">
+            Create a new standalone team or join an existing one
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-6">
+          {/* Custom Tab Switcher */}
+          <div className="grid grid-cols-2 p-1  rounded-lg border border-zinc-800">
+            <button
+              type="button"
+              onClick={() => handleModeChange('create')}
+              className={`py-1.5 text-sm font-medium rounded-md transition-all cursor-pointer ${
+                mode === 'create'
+                  ? 'bg-zinc-800 text-white shadow-sm'
+                  : 'text-zinc-400 hover:text-zinc-800'
+              }`}
+            >
+              Create Team
+            </button>
+            <button
+              type="button"
+              onClick={() => handleModeChange('join')}
+              className={`py-1.5 text-sm font-medium rounded-md transition-all cursor-pointer ${
+                mode === 'join'
+                  ? 'bg-zinc-800 text-white shadow-sm'
+                 : 'text-zinc-400 hover:text-zinc-800'
+              }`}
+            >
+              Join Team
+            </button>
+          </div>
+
+          {/* Conditional Form Rendering */}
+          {mode === 'create' ? (
+            <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="teamName">Team Name</Label>
+                <Input
+                  id="teamName"
+                  placeholder="Acme Corp"
+                  {...createForm.register('teamName')}
+          
+                />
+                {createForm.formState.errors.teamName && (
+                  <p className="text-xs text-destructive">
+                    {createForm.formState.errors.teamName.message}
+                  </p>
+                )}
+              </div>
+
+              {apiError && (
+                <div className="p-3 text-xs border bg-destructive/10 border-destructive/30 text-destructive rounded-md">
+                  {apiError}
+                </div>
+              )}
+
+              <Button type="submit" className="w-full cursor-pointer" disabled={isLoading}>
+                {isLoading ? 'Creating Team...' : 'Create'}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={joinForm.handleSubmit(onJoinSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="inviteCode">Invite Code</Label>
+                <Input
+                  id="inviteCode"
+                  placeholder="X7R2K9"
+                  maxLength={10}
+                  {...joinForm.register('inviteCode')}
+                  className=" uppercase"
+                />
+                {joinForm.formState.errors.inviteCode && (
+                  <p className="text-xs text-destructive">
+                    {joinForm.formState.errors.inviteCode.message}
+                  </p>
+                )}
+              </div>
+
+              {apiError && (
+                <div className="p-3 text-xs border bg-destructive/10 border-destructive/30 text-destructive rounded-md">
+                  {apiError}
+                </div>
+              )}
+
+              <Button type="submit" className="w-full cursor-pointer" disabled={isLoading}>
+                {isLoading ? 'Joining Team...' : 'Join'}
+              </Button>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
