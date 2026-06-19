@@ -4,6 +4,7 @@ import { DashboardHeader } from "../components/DashboardHeader";
 import { TeamInfoSection } from "../components/TeamInfoSection";
 import { ProductsTable } from "../components/ProductsTable";
 import { ProductFormDialog } from "../components/ProductFormDialog";
+import { supabase } from "@/shared/supabase/supabase_client";
 import {
   fetchCurrentTeam,
   fetchProductsRaw,
@@ -37,6 +38,14 @@ export function DashboardPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [teamLoading, setTeamLoading] = useState(true);
   const [teamError, setTeamError] = useState<string | null>(null);
+
+  // ── Load user on mount ───────────────────────────────────────────────────
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setCurrentUserId(user.id);
+    });
+  }, []);
 
   // ── Products ──────────────────────────────────────────────────────────────
   const [products, setProducts] = useState<Product[]>([]);
@@ -202,7 +211,11 @@ export function DashboardPage() {
 
       <main className="mx-auto w-full max-w-7xl px-6 py-8">
         <div className="space-y-6">
-          <TeamInfoSection team={team} members={members} />
+          <TeamInfoSection 
+            team={team} 
+            members={members} 
+            currentUserId={currentUserId} 
+          />
 
           <ProductsTable
             products={products}
@@ -215,6 +228,7 @@ export function DashboardPage() {
             onCreateClick={handleCreateClick}
             onEditClick={handleEditClick}
             onStatusChange={handleStatusChange}
+            currentUserId={currentUserId}
           />
         </div>
       </main>

@@ -29,7 +29,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/shared/components/ui/select";
 import {
   DropdownMenu,
@@ -120,6 +119,7 @@ interface ProductsTableProps {
   onCreateClick: () => void;
   onEditClick: (product: Product) => void;
   onStatusChange: (updated: Product) => void;
+  currentUserId?: string | null;
 }
 
 const COLS = 8; // image, title, description, status, creator, created, updated, actions
@@ -135,6 +135,7 @@ export function ProductsTable({
   onCreateClick,
   onEditClick,
   onStatusChange,
+  currentUserId,
 }: ProductsTableProps) {
   const { page, total, totalPages } = pagination;
 
@@ -142,8 +143,16 @@ export function ProductsTable({
   const [rowLoading, setRowLoading] = useState<Record<string, boolean>>({});
 
   const memberMap = useMemo(
-    () => new Map(members.map((m, i) => [m.id, m.email ?? `User ${i + 1}`])),
-    [members],
+    () =>
+      new Map(
+        members.map((m, i) => [
+          m.id,
+          m.id === currentUserId
+            ? "You"
+            : (m.name || m.email || `User ${i + 1}`),
+        ]),
+      ),
+    [members, currentUserId],
   );
 
   const formatDate = (iso: string) =>
@@ -201,7 +210,7 @@ export function ProductsTable({
               value={filters.search}
               onChange={(e) => onFiltersChange({ search: e.target.value })}
               placeholder="Search products…"
-              className="h-8 w-52 border-zinc-700 bg-zinc-800/60 pl-8 text-xs text-zinc-300 placeholder:text-zinc-600 focus-visible:ring-emerald-500/30"
+              className="h-8 w-52 border-zinc-800 bg-zinc-900/50 pl-8 text-xs text-zinc-300 placeholder:text-zinc-500 focus-visible:ring-emerald-500/30"
             />
           </div>
 
@@ -209,16 +218,21 @@ export function ProductsTable({
           <Select
             value={filters.status}
             onValueChange={(v) =>
-              onFiltersChange({ status: v as ProductFilters["status"] })
+              onFiltersChange({ status: (v ?? "all") as ProductFilters["status"] })
             }
           >
             <SelectTrigger
               id="filter-status"
-              className="h-8 w-34 border-zinc-700 bg-zinc-800/60 text-xs text-zinc-300 focus:ring-0"
+              className="h-8 w-34 border-zinc-800 bg-zinc-900/50 text-xs text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800/40 focus:ring-0 transition-colors"
             >
-              <SelectValue placeholder="Status" />
+              <span className="flex flex-1 text-left truncate">
+                {filters.status === "all" && "All statuses"}
+                {filters.status === "active" && "Active"}
+                {filters.status === "draft" && "Draft"}
+                {filters.status === "deleted" && "Deleted"}
+              </span>
             </SelectTrigger>
-            <SelectContent className="border-zinc-700 bg-zinc-900">
+            <SelectContent className="border-zinc-800 bg-zinc-950">
               <SelectItem value="all" className="text-xs">All statuses</SelectItem>
               <SelectItem value="active" className="text-xs">Active</SelectItem>
               <SelectItem value="draft" className="text-xs">Draft</SelectItem>
@@ -229,21 +243,30 @@ export function ProductsTable({
           {/* Creator filter */}
           <Select
             value={filters.createdBy}
-            onValueChange={(v) => onFiltersChange({ createdBy: v })}
+            onValueChange={(v) => onFiltersChange({ createdBy: v ?? "all" })}
           >
             <SelectTrigger
               id="filter-creator"
-              className="h-8 w-38 border-zinc-700 bg-zinc-800/60 text-xs text-zinc-300 focus:ring-0"
+              className="h-8 w-38 border-zinc-800 bg-zinc-900/50 text-xs text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800/40 focus:ring-0 transition-colors"
             >
-              <SelectValue placeholder="Creator" />
+              <span className="flex flex-1 text-left truncate">
+                {filters.createdBy === "all"
+                  ? "All creators"
+                  : (memberMap.get(filters.createdBy) ?? "Creator")}
+              </span>
             </SelectTrigger>
-            <SelectContent className="border-zinc-700 bg-zinc-900">
+            <SelectContent className="border-zinc-800 bg-zinc-950">
               <SelectItem value="all" className="text-xs">All creators</SelectItem>
-              {members.map((m, idx) => (
-                <SelectItem key={m.id} value={m.id} className="text-xs">
-                  {m.email ?? `User ${idx + 1}`}
-                </SelectItem>
-              ))}
+              {members.map((m, idx) => {
+                const displayName = m.id === currentUserId
+                  ? "You"
+                  : (m.name || m.email || `User ${idx + 1}`);
+                return (
+                  <SelectItem key={m.id} value={m.id} className="text-xs">
+                    {displayName}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
 

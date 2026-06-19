@@ -13,6 +13,7 @@ export interface TeamMember {
   id: string;
   team_id: string | null;
   created_at: string;
+  name?: string | null;
   /** Joined from auth.users via edge function / RPC */
   email?: string;
 }

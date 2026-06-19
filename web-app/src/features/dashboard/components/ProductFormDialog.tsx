@@ -251,7 +251,6 @@ export function ProductFormDialog({
               placeholder="e.g. Premium Headphones"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="border-zinc-700 bg-zinc-900 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-emerald-500/30"
               required
             />
           </div>
@@ -266,7 +265,7 @@ export function ProductFormDialog({
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               maxLength={2000}
-              className="resize-none border-zinc-700 bg-zinc-900 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-emerald-500/30"
+              className="resize-none"
             />
           </div>
 

@@ -38,7 +38,7 @@ export async function fetchCurrentTeam(): Promise<Team> {
 export async function fetchTeamMembers(teamId: string): Promise<TeamMember[]> {
   const { data, error } = await supabase
     .from("users")
-    .select("id, team_id, created_at")
+    .select("id, team_id, created_at, name")
     .eq("team_id", teamId);
 
   if (error) throw error;

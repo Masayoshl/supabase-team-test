@@ -7,9 +7,10 @@ import type { Team, TeamMember } from '../types/dashboard_types';
 interface TeamInfoSectionProps {
   team: Team;
   members: TeamMember[];
+  currentUserId?: string | null;
 }
 
-export function TeamInfoSection({ team, members }: TeamInfoSectionProps) {
+export function TeamInfoSection({ team, members, currentUserId }: TeamInfoSectionProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -75,10 +76,13 @@ export function TeamInfoSection({ team, members }: TeamInfoSectionProps) {
 
         <div className="flex flex-wrap gap-2">
           {members.map((member, idx) => {
-            const initials = member.email
-              ? member.email.slice(0, 2).toUpperCase()
-              : `U${idx + 1}`;
-            const displayName = member.email ?? `User ${idx + 1}`;
+            const isSelf = member.id === currentUserId;
+            const displayName = isSelf 
+              ? "You" 
+              : (member.name || member.email || `User ${idx + 1}`);
+            const initials = isSelf
+              ? "Y"
+              : displayName.slice(0, 2).toUpperCase();
 
             return (
               <div
