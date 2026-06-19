@@ -1,70 +1,24 @@
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useOnboarding } from '../hooks/useOnboarding';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
-import { createTeamSchema, joinTeamSchema, type CreateTeamInput, type JoinTeamInput } from '../schemas/onboarding_schema';
-import { onboardingService  } from '../services/onboarding_service';
-
 
 interface OnboardingFormProps {
   onSuccess: () => void;
 }
 
-type OnboardingMode = 'create' | 'join';
-
 export function OnboardingPage({ onSuccess }: OnboardingFormProps) {
-  const [mode, setMode] = useState<OnboardingMode>('create');
-  const [apiError, setApiError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-
-  const createForm = useForm<CreateTeamInput>({
-    resolver: zodResolver(createTeamSchema),
-    defaultValues: { teamName: '' },
-  });
-
-
-  const joinForm = useForm<JoinTeamInput>({
-    resolver: zodResolver(joinTeamSchema),
-    defaultValues: { inviteCode: '' },
-  });
-
-  const onCreateSubmit = async (data: CreateTeamInput) => {
-    setIsLoading(true);
-    setApiError(null);
-    try {
-      await onboardingService.createTeam({ teamName: data.teamName });
-      onSuccess();
-    } catch (err) {
-      setApiError(err instanceof Error ? err.message : 'Failed to create team.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const onJoinSubmit = async (data: JoinTeamInput) => {
-    setIsLoading(true);
-    setApiError(null);
-    try {
-      await onboardingService.joinTeam({ inviteCode: data.inviteCode });
-      onSuccess();
-    } catch (err) {
-      setApiError(err instanceof Error ? err.message : 'Invalid invite code.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-
-  const handleModeChange = (newMode: OnboardingMode) => {
-    setMode(newMode);
-    setApiError(null);
-    createForm.reset();
-    joinForm.reset();
-  };
+  const {
+    mode,
+    apiError,
+    isLoading,
+    createForm,
+    joinForm,
+    onCreateSubmit,
+    onJoinSubmit,
+    handleModeChange,
+  } = useOnboarding({ onSuccess });
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-4">
