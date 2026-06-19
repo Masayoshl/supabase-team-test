@@ -3,21 +3,10 @@ import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/shared/supabase/supabase_client';
 import { AuthPage } from '@/features/auth/pages/auth_page';
-import { Button } from '@/shared/components/ui/button';
 import { OnboardingPage } from '@/features/onboarding/page/onboarding_page';
+import { DashboardPage } from '@/features/dashboard/page/dashboard_page';
 
 
-function DashboardPage() {
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 text-white gap-4">
-      <h1 className="text-2xl font-bold">Main Dashboard</h1>
-      <p className="text-emerald-400">Successfully authorized inside the team!</p>
-      <Button className="cursor-pointer" onClick={() => supabase.auth.signOut()}>
-        Sign Out
-      </Button>
-    </div>
-  );
-}
 
 interface UserProfile {
   id: string;
