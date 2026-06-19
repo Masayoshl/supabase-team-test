@@ -286,7 +286,7 @@ export function ProductsTable({
       {/* ── Table ────────────────────────────────────────────────────────── */}
 
       {/* Thin progress bar — shown while fetching, preserves layout */}
-      <div className="relative h-[2px] overflow-hidden bg-transparent">
+      <div className="relative h-0.5 overflow-hidden bg-transparent">
         <div
           className={`absolute inset-y-0 left-0 bg-emerald-500/70 transition-all duration-300 ${
             isLoading ? "w-full animate-pulse" : "w-0"

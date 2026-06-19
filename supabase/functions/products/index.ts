@@ -1,6 +1,8 @@
 // deno-lint-ignore-file no-explicit-any
-import { corsHeaders, handleCORS } from "../_shared/cors.ts";
+import { handleCORS } from "../_shared/cors.ts";
 import { createSupabaseClient } from "../_shared/supabase_client.ts";
+import { json, err } from "../_shared/response.ts";
+import { resolveUserTeam, AuthError } from "../_shared/auth.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
@@ -16,46 +18,6 @@ const STATUS_TRANSITIONS: Record<ProductStatus, ProductStatus[]> = {
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function json(data: unknown, status = 200): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
-function err(message: string, status: number): Response {
-  return json({ error: message }, status);
-}
-
-async function resolveUserTeam(supabase: SupabaseClient): Promise<
-  | { ok: true; userId: string; teamId: string }
-  | { ok: false; response: Response }
-> {
-  const {
-    data: { user },
-    error: authErr,
-  } = await supabase.auth.getUser();
-
-  if (authErr || !user) {
-    return { ok: false, response: err("User authentication failed.", 401) };
-  }
-
-  const { data: userRow, error: userErr } = await supabase
-    .from("users")
-    .select("team_id")
-    .eq("id", user.id)
-    .single();
-
-  if (userErr || !userRow?.team_id) {
-    return {
-      ok: false,
-      response: err("User does not belong to a team.", 403),
-    };
-  }
-
-  return { ok: true, userId: user.id, teamId: userRow.team_id };
-}
 
 function parseProductPath(pathname: string): string[] {
   const match = pathname.match(/\/products\/?(.*)$/);
@@ -340,10 +302,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const supabase = createSupabaseClient(req);
-    const resolved = await resolveUserTeam(supabase);
-    if (!resolved.ok) return resolved.response;
-
-    const { userId, teamId } = resolved;
+    const { userId, teamId } = await resolveUserTeam(supabase);
 
     // ── GET /products ───────────────────────────────────────────────────────
     if (req.method === "GET" && segments.length === 0) {
@@ -374,6 +333,9 @@ Deno.serve(async (req: Request) => {
 
     return err(`Endpoint ${req.method} ${url.pathname} not found.`, 404);
   } catch (error: any) {
+    if (error instanceof AuthError) {
+      return err(error.message, error.status);
+    }
     return json({ error: error.message ?? "Internal Server Error" }, 500);
   }
 });

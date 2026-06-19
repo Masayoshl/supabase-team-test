@@ -1,6 +1,12 @@
 // deno-lint-ignore-file no-explicit-any
-import { corsHeaders, handleCORS } from "../_shared/cors.ts";
+import { handleCORS } from "../_shared/cors.ts";
 import { createSupabaseClient } from "../_shared/supabase_client.ts";
+import { err, json } from "../_shared/response.ts";
+import {
+  AuthError,
+  getAuthenticatedUser,
+  resolveUserTeam,
+} from "../_shared/auth.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
@@ -30,25 +36,12 @@ async function createTeam(
 ) {
   const parsed = createTeamSchema.safeParse(body);
   if (!parsed.success) {
-    const message = parsed.error;
-    return new Response(JSON.stringify({ error: message }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ error: parsed.error }, 400);
   }
 
   const { teamName } = parsed.data;
 
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) {
-    return new Response(
-      JSON.stringify({ error: "User authentication failed." }),
-      {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
-  }
+  const _user = await getAuthenticatedUser(supabase);
 
   const { data: team, error } = await supabase
     .from("teams")
@@ -58,10 +51,7 @@ async function createTeam(
 
   if (error) throw error;
 
-  return new Response(JSON.stringify({ data: team }), {
-    status: 201,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  return json({ data: team }, 201);
 }
 
 async function joinTeam(
@@ -70,11 +60,7 @@ async function joinTeam(
 ) {
   const parsed = joinTeamSchema.safeParse(body);
   if (!parsed.success) {
-    const message = parsed.error;
-    return new Response(JSON.stringify({ error: message }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ error: parsed.error }, 400);
   }
 
   const { inviteCode } = parsed.data;
@@ -86,25 +72,10 @@ async function joinTeam(
     .single();
 
   if (teamError || !teamData) {
-    return new Response(
-      JSON.stringify({ error: "Invalid invite code or team does not exist." }),
-      {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+    return err("Invalid invite code or team does not exist.", 404);
   }
 
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) {
-    return new Response(
-      JSON.stringify({ error: "User authentication failed." }),
-      {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
-  }
+  const user = await getAuthenticatedUser(supabase);
 
   const { error: updateError } = await supabase
     .from("users")
@@ -113,57 +84,23 @@ async function joinTeam(
 
   if (updateError) throw updateError;
 
-  return new Response(JSON.stringify({ data: teamData }), {
-    status: 200,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  return json({ data: teamData }, 200);
 }
 
 async function getCurrentTeam(supabase: SupabaseClient) {
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) {
-    return new Response(
-      JSON.stringify({ error: "User authentication failed." }),
-      {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
-  }
-
-  const { data: userData, error: userFetchError } = await supabase
-    .from("users")
-    .select("team_id")
-    .eq("id", user.id)
-    .single();
-
-  if (userFetchError || !userData?.team_id) {
-    return new Response(
-      JSON.stringify({ error: "User does not belong to a team." }),
-      {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
-  }
+  const { teamId } = await resolveUserTeam(supabase);
 
   const { data: teamData, error: teamError } = await supabase
     .from("teams")
     .select("*")
-    .eq("id", userData.team_id)
+    .eq("id", teamId)
     .single();
 
   if (teamError || !teamData) {
-    return new Response(JSON.stringify({ error: "Team not found." }), {
-      status: 404,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return err("Team not found.", 404);
   }
 
-  return new Response(JSON.stringify({ data: teamData }), {
-    status: 200,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  return json({ data: teamData }, 200);
 }
 
 // ── Entry Point ────────────────────────────────────────────────────────────
@@ -178,13 +115,7 @@ Deno.serve(async (req: Request) => {
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Missing authorization credentials" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      return err("Missing authorization credentials", 401);
     }
 
     const supabase = createSupabaseClient(req);
@@ -203,22 +134,11 @@ Deno.serve(async (req: Request) => {
       return await getCurrentTeam(supabase);
     }
 
-    return new Response(
-      JSON.stringify({
-        error: `Endpoint ${req.method} ${url.pathname} not found`,
-      }),
-      {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+    return err(`Endpoint ${req.method} ${url.pathname} not found`, 404);
   } catch (error: any) {
-    return new Response(
-      JSON.stringify({ error: error.message || "Internal Server Error" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+    if (error instanceof AuthError) {
+      return err(error.message, error.status);
+    }
+    return err(error.message || "Internal Server Error", 500);
   }
 });
